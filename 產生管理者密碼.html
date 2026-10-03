@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>產生管理者密碼</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2430;--muted:#6b7280;--line:#e3e6ec;--accent:#2f6fed}
+@media (prefers-color-scheme:dark){:root{--bg:#14161b;--card:#1d2027;--text:#e8eaef;--muted:#9aa1ad;--line:#2d313b;--accent:#6b9bff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 "Microsoft JhengHei",system-ui,sans-serif;padding:24px}
+.card{max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+h1{margin:0 0 4px;font-size:20px}.sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+input,button,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+button{background:var(--accent);color:#fff;border:0;cursor:pointer;margin-top:14px}
+textarea{font-family:Consolas,monospace;font-size:12px;height:110px;margin-top:6px}
+.warn{background:rgba(232,162,29,.15);border-radius:8px;padding:8px 12px;font-size:13px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>產生管理者密碼</h1>
+  <div class="sub">在本機瀏覽器計算，不會傳送任何資料。輸入的密碼不會被儲存。</div>
+  <label>帳號<input id="u" autocomplete="off"></label>
+  <label>顯示名稱（登入後顯示在按鈕上）<input id="n" autocomplete="off" value="管理者"></label>
+  <label>密碼（建議 12 字元以上）<input id="p" type="password" autocomplete="new-password"></label>
+  <label>再輸入一次密碼<input id="p2" type="password" autocomplete="new-password"></label>
+  <button id="go">產生</button>
+  <div id="msg" style="color:#d64545;font-size:13px;margin-top:8px"></div>
+  <div id="out" style="display:none">
+    <label>把下面這一行貼到「1_風險熱力圖.html」裡 <code>const ADMINS=[ ... ]</code> 的中括號內（多位管理者用逗號分隔）</label>
+    <textarea id="line" readonly></textarea>
+    <button id="copy" style="margin-top:8px">複製</button>
+  </div>
+  <div class="warn">這一行只含密碼的雜湊值，看不出原本的密碼；但密碼太簡單仍可能被猜出。純前端頁面無法做到真正的權限控管，只能防止誤刪。</div>
+</div>
+<script>
+const PBKDF2_ITER=200000; // 必須與 1_風險熱力圖.html 相同
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+const $=id=>document.getElementById(id);
+$('go').onclick=async()=>{
+  const u=$('u').value.trim(),n=$('n').value.trim()||'管理者',p=$('p').value,msg=$('msg');
+  msg.textContent='';
+  if(!u){msg.textContent='請輸入帳號';return}
+  if(p.length<8){msg.textContent='密碼至少 8 個字元（建議 12 字元以上）';return}
+  if(p!==$('p2').value){msg.textContent='兩次輸入的密碼不一致';return}
+  if(!(window.crypto&&crypto.subtle)){msg.textContent='此環境不支援加密功能，請改用 Chrome、Edge 或 Firefox 直接開啟檔案';return}
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(p),'PBKDF2',false,['deriveBits']);
+  const h=hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PBKDF2_ITER},key,256));
+  const esc=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  $('line').value=`  {user:'${esc(u)}',name:'${esc(n)}',salt:'${hex(salt)}',hash:'${h}'},`;
+  $('out').style.display='block';
+  $('p').value=$('p2').value='';
+};
+$('copy').onclick=()=>{$('line').select();(navigator.clipboard?navigator.clipboard.writeText($('line').value):Promise.reject()).then(()=>$('copy').textContent='已複製 ✓').catch(()=>document.execCommand('copy'))};
+</script>
+</body>
+</html>

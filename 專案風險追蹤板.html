@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>專案風險熱力圖</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1f2430;--muted:#6b7280;--line:#e3e6ec;--accent:#2f6fed}
+@media (prefers-color-scheme:dark){:root{--bg:#14161b;--card:#1d2027;--text:#e8eaef;--muted:#9aa1ad;--line:#2d313b;--accent:#6b9bff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Microsoft JhengHei",system-ui,sans-serif}
+header{padding:20px 24px 4px}
+h1{margin:0;font-size:22px}
+.sub{color:var(--muted);font-size:13px}
+main{display:grid;grid-template-columns:minmax(380px,1.1fr) minmax(320px,1fr);gap:20px;padding:16px 24px 32px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{margin:0 0 12px;font-size:16px}
+.matrix{display:grid;grid-template-columns:28px repeat(5,1fr);grid-template-rows:repeat(5,minmax(70px,1fr)) 28px;gap:4px}
+.axis{display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)}
+.cell{border-radius:8px;padding:4px;display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;cursor:pointer;border:2px solid transparent;min-height:70px}
+.cell.hit{border-color:var(--text)}
+.cell.dim{opacity:.35}
+.chip.off{opacity:.3}
+.stat{cursor:pointer;border:2px solid transparent}
+.stat.on{border-color:var(--text);box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--text)}
+.cell.over{outline:2px dashed var(--text)}
+.chip{background:rgba(0,0,0,.72);color:#fff;font-size:11px;padding:1px 6px;border-radius:10px;cursor:grab;height:20px}
+.chip.closed{opacity:.35;text-decoration:line-through}
+.lab{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+.ylab{writing-mode:vertical-rl;transform:rotate(180deg)}
+.stats{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.stat{flex:1;min-width:80px;border-radius:8px;padding:8px 12px;color:#fff}
+.stat b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+tr.click{cursor:pointer}tr.click:hover{background:var(--bg)}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:12px}
+form{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+form .full{grid-column:1/-1}
+input,select,textarea,button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
+button{background:var(--accent);color:#fff;border:0;cursor:pointer}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line);width:auto}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.filter{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="row" style="margin:0">
+    <div><h1>專案風險熱力圖</h1>
+    <div class="sub">拖曳風險標籤到其他格子即可調整等級；點格子可篩選清單。資料儲存在本機瀏覽器。</div></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="role" class="ghost" style="white-space:nowrap" title="一般使用者不需登入；管理者請登入">🔑 管理者登入</button>
+      <button id="toggleForm" style="width:auto;white-space:nowrap">＋ 新增風險</button>
+    </div>
+  </div>
+</header>
+<dialog id="login" style="border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);padding:20px;width:min(340px,90vw)">
+  <form id="loginForm" style="display:grid;grid-template-columns:1fr;gap:10px">
+    <b style="font-size:16px">管理者登入</b>
+    <input id="lUser" placeholder="帳號" autocomplete="username" required>
+    <input id="lPass" type="password" placeholder="密碼" autocomplete="current-password" required>
+    <div id="loginErr" style="color:#d64545;font-size:13px;min-height:18px"></div>
+    <div style="display:flex;gap:8px"><button type="button" class="ghost" id="lCancel">取消</button><button>登入</button></div>
+  </form>
+</dialog>
+<div id="formWrap" style="display:none;padding:8px 24px 0">
+  <section class="card">
+    <form id="form">
+      <input class="full" name="desc" placeholder="風險描述" required>
+      <select name="p"><option value="1">機率 1（極低）</option><option value="2">機率 2</option><option value="3" selected>機率 3</option><option value="4">機率 4</option><option value="5">機率 5（極高）</option></select>
+      <select name="i"><option value="1">影響 1（輕微）</option><option value="2">影響 2</option><option value="3" selected>影響 3</option><option value="4">影響 4</option><option value="5">影響 5（嚴重）</option></select>
+      <input name="owner" placeholder="負責人">
+      <input name="plan" placeholder="因應對策">
+      <input name="progress" placeholder="進度更新（選填，會記錄為今天的第一則）">
+      <label style="font-size:12px;color:var(--muted)">預計完成日<input name="due" type="date"></label>
+      <button class="full">新增風險</button>
+    </form>
+  </section>
+</div>
+<main>
+  <section class="card">
+    <div class="stats" id="stats"></div>
+    <div class="matrix" id="matrix"></div>
+    <div class="lab">橫軸：影響程度 → ／ 縱軸：發生機率 ↑</div>
+  </section>
+  <section class="card" style="grid-column:1/-1">
+    <div class="row"><h2 style="margin:0">風險清單</h2>
+      <span class="filter" id="filterInfo"></span>
+      <button class="ghost" id="clearFilter" style="display:none">清除篩選</button></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>編號</th><th>描述</th><th>進度更新</th><th>最新更新日</th><th>預計完成日</th><th>分數</th><th>負責人</th><th>狀態</th></tr></thead><tbody id="list"></tbody></table></div>
+    <div id="detail" style="margin-top:12px"></div>
+  </section>
+</main>
+<script>
+const KEY='risk-matrix-v1';
+const demo=[
+ {id:'R01',desc:'關鍵供應商交期延遲',p:4,i:5,owner:'小王',plan:'備援供應商報價',status:'處理中'},
+ {id:'R02',desc:'需求範圍持續變動',p:5,i:4,owner:'Emma',plan:'凍結需求並走變更流程',status:'處理中'},
+ {id:'R03',desc:'核心工程師離職',p:2,i:5,owner:'Emma',plan:'知識文件化、交叉訓練',status:'監控中'},
+ {id:'R04',desc:'測試環境不穩定',p:3,i:3,owner:'小李',plan:'建立獨立測試機',status:'處理中'},
+ {id:'R05',desc:'認證送測未通過',p:3,i:5,owner:'小陳',plan:'預先預審、保留重測時間',status:'監控中'},
+ {id:'R06',desc:'預算被削減',p:2,i:4,owner:'Emma',plan:'列出可延後項目',status:'監控中'},
+ {id:'R07',desc:'跨部門資源衝突',p:4,i:3,owner:'Emma',plan:'月會協調人力',status:'處理中'},
+ {id:'R08',desc:'文件版本混亂',p:4,i:2,owner:'小李',plan:'導入單一文件庫',status:'已關閉'},
+ {id:'R09',desc:'匯率波動影響成本',p:3,i:2,owner:'小周',plan:'鎖定遠期匯率',status:'監控中'},
+ {id:'R10',desc:'客戶驗收標準不明',p:3,i:4,owner:'小王',plan:'簽訂驗收條件書',status:'處理中'},
+ {id:'R11',desc:'資安弱點掃描發現高風險',p:2,i:3,owner:'小陳',plan:'提前排程修補',status:'監控中'},
+ {id:'R12',desc:'會議決議未追蹤',p:3,i:1,owner:'Emma',plan:'使用待辦追蹤板',status:'已關閉'}
+];
+const DAY=864e5;
+const dayStr=n=>{const x=new Date(Date.now()+n*DAY);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const todayStr=()=>dayStr(0);
+// 示範用的進度更新（更新日、預計完成日以今天為基準）
+const extra={
+ R01:['已向備援供應商 B 取得報價，等待樣品',-2,12],
+ R02:['變更凍結已獲客戶同意，下週起走變更單',-5,7],
+ R03:['關鍵模組文件完成 60%',-9,30],
+ R04:['獨立測試機已下單，預計下週到貨',-3,10],
+ R05:['預審資料已送出，等待測試實驗室回覆',-1,21],
+ R06:['可延後項目清單已完成，待主管確認',-12,14],
+ R07:['月會已排定，與 PMO 協調人力',-4,6],
+ R08:['文件庫已上線，舊文件已搬遷',-20,-15],
+ R09:['已與財務討論遠期匯率方案',-15,40],
+ R10:['驗收條件書初稿已寄給客戶',-6,9],
+ R11:['掃描報告已確認，修補排入下個 Sprint',-8,25],
+ R12:['待辦追蹤板已導入週會使用',-25,-20]
+};
+demo.forEach(r=>{const e=extra[r.id];
+  r.logs=[{d:dayStr(e[1]-6),t:'已列入追蹤，開始評估'},{d:dayStr(e[1]),t:e[0]}];r.due=dayStr(e[2])});
+let risks;try{risks=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!Array.isArray(risks))risks=demo;
+// 舊版資料（單一進度文字）轉成條列紀錄
+risks.forEach(r=>{
+  if(!Array.isArray(r.logs)){
+    r.logs=(r.progress&&r.updated)?[{d:r.updated,t:r.progress}]:[];
+    delete r.progress;delete r.updated;
+    if(!('due' in r))r.due='';
+  }
+});
+const sortedLogs=r=>[...r.logs].sort((a,b)=>a.d.localeCompare(b.d));
+const lastUpdate=r=>r.logs.length?sortedLogs(r).slice(-1)[0].d:'';
+// 身分：一般使用者不需登入，可新增、更新進度；只有管理者（需登入）可刪除風險。
+// 注意：這是純前端頁面，只能防止誤刪，不是真正的權限控管（有心人仍可改檔案或瀏覽器資料）。
+// 檔案裡只存「密碼雜湊」（PBKDF2-SHA256 + 隨機 salt），不存明碼。
+// 新增管理者：用「產生管理者密碼.html」產生一行，貼到下面陣列中。預設沒有任何管理者。
+const ADMINS=[
+  // {user:'帳號',name:'顯示名稱',salt:'...',hash:'...'}
+];
+const PBKDF2_ITER=200000;
+const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+const unhex=h=>new Uint8Array(h.match(/../g).map(x=>parseInt(x,16)));
+async function hashPw(pw,saltHex){
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']);
+  return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:unhex(saltHex),iterations:PBKDF2_ITER},key,256));
+}
+let failCount=0,lockUntil=0;
+let admin=null,curId=null;
+try{admin=JSON.parse(sessionStorage.getItem('risk-admin'))}catch(e){}
+const isAdmin=()=>!!admin;
+function setRole(){
+  document.getElementById('role').textContent=admin?`🛡 ${admin.name}（登出）`:'🔑 管理者登入';
+  if(curId&&risks.some(r=>r.id===curId))showDetail(curId);
+}
+const loginDlg=document.getElementById('login');
+document.getElementById('role').onclick=()=>{
+  if(admin){admin=null;try{sessionStorage.removeItem('risk-admin')}catch(e){}setRole();return}
+  document.getElementById('loginErr').textContent='';
+  loginDlg.showModal();document.getElementById('lUser').focus();
+};
+document.getElementById('lCancel').onclick=()=>loginDlg.close();
+document.getElementById('loginForm').onsubmit=async e=>{
+  e.preventDefault();
+  const err=document.getElementById('loginErr'),form=e.target;
+  if(!ADMINS.length){err.textContent='尚未設定管理者，請先產生管理者帳號';return}
+  if(!(window.crypto&&crypto.subtle)){err.textContent='此瀏覽器環境不支援登入驗證，請改用 https 或 localhost 開啟';return}
+  const wait=Math.ceil((lockUntil-Date.now())/1000);
+  if(wait>0){err.textContent=`嘗試次數過多，請 ${wait} 秒後再試`;return}
+  const u=document.getElementById('lUser').value.trim(),p=document.getElementById('lPass').value;
+  const a=ADMINS.find(x=>x.user===u);
+  // 帳號不存在時也做一次雜湊，避免從回應時間猜出帳號是否存在
+  const h=await hashPw(p,a?a.salt:'00'.repeat(16));
+  if(!a||h!==a.hash){
+    failCount++;
+    if(failCount>=5){lockUntil=Date.now()+30000;failCount=0;err.textContent='嘗試次數過多，請 30 秒後再試'}
+    else err.textContent='帳號或密碼不正確';
+    form.reset();return;
+  }
+  failCount=0;admin={user:a.user,name:a.name};
+  try{sessionStorage.setItem('risk-admin',JSON.stringify(admin))}catch(_){}
+  form.reset();loginDlg.close();setRole();
+};
+// 篩選條件：{t:'level',v:'高'} | {t:'closed'} | {t:'cell',p,i} | {t:'risk',id} | null
+let flt=null;
+const sameF=(a,b)=>a&&b&&JSON.stringify(a)===JSON.stringify(b);
+const setF=f=>{flt=sameF(flt,f)?null:f;render()};
+const hit=r=>{
+  if(!flt)return true;
+  if(flt.t==='level')return r.status!=='已關閉'&&level(score(r))[0]===flt.v;
+  if(flt.t==='closed')return r.status==='已關閉';
+  if(flt.t==='cell')return r.p===flt.p&&r.i===flt.i;
+  return r.id===flt.id;
+};
+const fText=()=>!flt?'':flt.t==='level'?`篩選：${flt.v}風險（未關閉）`:flt.t==='closed'?'篩選：已關閉':flt.t==='cell'?`篩選：機率 ${flt.p} × 影響 ${flt.i}`:`篩選：${flt.id}`;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(risks))}catch(e){}};
+const score=r=>r.p*r.i;
+const level=s=>s>=15?['高','#d64545']:s>=8?['中','#e8a21d']:['低','#3fa66b'];
+const bg=s=>{const l=level(s)[1];return l+'33'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function render(){
+  // stats
+  const open=risks.filter(r=>r.status!=='已關閉');
+  const cnt=k=>open.filter(r=>level(score(r))[0]===k).length;
+  document.getElementById('stats').innerHTML=
+    ['高','中','低'].map(k=>`<div class="stat${sameF(flt,{t:'level',v:k})?' on':''}" data-f='${JSON.stringify({t:'level',v:k})}' style="background:${level(k==='高'?15:k==='中'?8:1)[1]}"><b>${cnt(k)}</b>${k}風險（未關閉）</div>`).join('')+
+    `<div class="stat${flt&&flt.t==='closed'?' on':''}" data-f='{"t":"closed"}' style="background:#6b7280"><b>${risks.length-open.length}</b>已關閉</div>`;
+  document.querySelectorAll('.stat').forEach(s=>s.onclick=()=>setF(JSON.parse(s.dataset.f)));
+  // matrix
+  const m=document.getElementById('matrix');m.innerHTML='';
+  for(let p=5;p>=1;p--){
+    const a=document.createElement('div');a.className='axis';a.textContent=p;m.appendChild(a);
+    for(let i=1;i<=5;i++){
+      const inCell=risks.filter(r=>r.p===p&&r.i===i);
+      const cellHit=!flt||inCell.some(hit)||(flt.t==='cell'&&flt.p===p&&flt.i===i);
+      const c=document.createElement('div');c.className='cell'+(flt&&cellHit?' hit':'')+(flt&&!cellHit?' dim':'');
+      c.style.background=flt&&cellHit?level(p*i)[1]:bg(p*i);
+      c.onclick=()=>setF({t:'cell',p,i});
+      c.ondragover=e=>{e.preventDefault();c.classList.add('over')};
+      c.ondragleave=()=>c.classList.remove('over');
+      c.ondrop=e=>{e.preventDefault();const r=risks.find(x=>x.id===e.dataTransfer.getData('text'));if(r){r.p=p;r.i=i;save();render()}};
+      inCell.forEach(r=>{
+        const ch=document.createElement('span');ch.className='chip'+(r.status==='已關閉'?' closed':'')+(flt&&!hit(r)?' off':'');
+        ch.textContent=r.id;ch.title=r.desc;ch.draggable=true;
+        ch.ondragstart=e=>e.dataTransfer.setData('text',r.id);
+        ch.onclick=e=>{e.stopPropagation();flt={t:'risk',id:r.id};render();showDetail(r.id)};
+        c.appendChild(ch);
+      });
+      m.appendChild(c);
+    }
+  }
+  m.appendChild(document.createElement('div'));
+  for(let i=1;i<=5;i++){const a=document.createElement('div');a.className='axis';a.textContent=i;m.appendChild(a)}
+  // list
+  let rows=risks.filter(hit).sort((a,b)=>score(b)-score(a));
+  document.getElementById('list').innerHTML=rows.map(r=>{const [n,c]=level(score(r));
+    const od=r.due&&r.status!=='已關閉'&&r.due<todayStr();
+    return `<tr class="click" data-id="${r.id}"><td>${r.id}</td><td>${esc(r.desc)}</td><td style="min-width:220px">${r.logs.length?sortedLogs(r).map(l=>`<div>${l.d} ${esc(l.t)}</div>`).join(''):'—'}</td><td style="white-space:nowrap">${lastUpdate(r)||'—'}</td><td style="white-space:nowrap${od?';color:#d64545;font-weight:600':''}">${r.due||'—'}${od?'（逾期）':''}</td><td><span class="badge" style="background:${c}">${score(r)}・${n}</span></td><td>${esc(r.owner)}</td><td>${r.status}</td></tr>`}).join('')||'<tr><td colspan="8" style="color:var(--muted)">此格沒有風險</td></tr>';
+  document.querySelectorAll('tr.click').forEach(t=>t.onclick=()=>showDetail(t.dataset.id));
+  document.getElementById('filterInfo').textContent=fText();
+  document.getElementById('clearFilter').style.display=flt?'':'none';
+}
+function showDetail(id){
+  const r=risks.find(x=>x.id===id);if(!r)return;
+  curId=id;
+  document.getElementById('detail').innerHTML=`<div class="card" style="background:var(--bg)"><b>${r.id}　${esc(r.desc)}</b><br>
+  機率 ${r.p}／影響 ${r.i}／負責人 ${esc(r.owner)}<br>因應對策：${esc(r.plan||'—')}<br>
+  <div style="margin-top:8px;font-size:13px"><b>進度紀錄</b>
+    ${r.logs.length?sortedLogs(r).map((l,k)=>`<div>・${l.d} ${esc(l.t)} <a href="#" data-dl="${r.logs.indexOf(l)}" style="color:var(--muted);text-decoration:none" title="刪除這則">✕</a></div>`).join(''):'<div style="color:var(--muted)">尚無紀錄</div>'}
+  </div>
+  <div style="display:grid;grid-template-columns:150px 1fr auto;gap:8px;margin-top:8px">
+    <input id="dDate" type="date" value="${todayStr()}">
+    <input id="dProg" placeholder="本次進度更新（例：已取得樣品）">
+    <button id="dAdd" style="width:auto">新增</button>
+  </div>
+  <label style="display:block;font-size:12px;color:var(--muted);margin-top:8px">預計完成日
+    <input id="dDue" type="date" value="${r.due||''}" style="width:auto;display:inline-block"></label>
+  <div class="row" style="margin-top:8px;justify-content:flex-start">
+  <select id="st" style="width:auto">${['監控中','處理中','已關閉'].map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select>
+  ${isAdmin()?'<button class="ghost" id="del" style="color:#d64545">刪除此風險</button>':'<span style="font-size:12px;color:var(--muted)">只有管理者（需登入）可以刪除風險</span>'}</div></div>`;
+  const addLog=()=>{
+    const t=document.getElementById('dProg').value.trim(),d=document.getElementById('dDate').value||todayStr();
+    if(!t)return;r.logs.push({d,t});save();render();showDetail(id)};
+  document.getElementById('dAdd').onclick=addLog;
+  document.getElementById('dProg').onkeydown=e=>{if(e.key==='Enter')addLog()};
+  document.getElementById('dDue').onchange=e=>{r.due=e.target.value;save();render()};
+  document.querySelectorAll('[data-dl]').forEach(a=>a.onclick=e=>{e.preventDefault();r.logs.splice(+a.dataset.dl,1);save();render();showDetail(id)});
+  document.getElementById('st').onchange=e=>{r.status=e.target.value;save();render();showDetail(id)};
+  const del=document.getElementById('del');
+  if(del)del.onclick=()=>{if(isAdmin()&&confirm('確定刪除 '+r.id+'？')){risks=risks.filter(x=>x!==r);curId=null;save();document.getElementById('detail').innerHTML='';render()}};
+}
+document.getElementById('clearFilter').onclick=()=>{flt=null;document.getElementById('detail').innerHTML='';render()};
+function toggleForm(show){
+  const w=document.getElementById('formWrap');
+  const s=typeof show==='boolean'?show:w.style.display==='none';
+  w.style.display=s?'block':'none';
+  document.getElementById('toggleForm').textContent=s?'✕ 收合':'＋ 新增風險';
+  if(s)w.querySelector('input[name=desc]').focus();
+}
+document.getElementById('toggleForm').onclick=()=>toggleForm();
+document.getElementById('form').onsubmit=e=>{
+  e.preventDefault();const f=new FormData(e.target);
+  const n=Math.max(0,...risks.map(r=>+r.id.slice(1)))+1;
+  risks.push({id:'R'+String(n).padStart(2,'0'),desc:f.get('desc'),p:+f.get('p'),i:+f.get('i'),owner:f.get('owner')||'未指派',plan:f.get('plan'),status:'監控中',logs:f.get('progress').trim()?[{d:todayStr(),t:f.get('progress').trim()}]:[],due:f.get('due')||''});
+  save();e.target.reset();toggleForm(false);render();
+};
+setRole();
+render();
+</script>
+</body>
+</html>
