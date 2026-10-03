@@ -5,51 +5,85 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>專案風險熱力圖</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--text:#1f2430;--muted:#6b7280;--line:#e3e6ec;--accent:#2f6fed}
-@media (prefers-color-scheme:dark){:root{--bg:#14161b;--card:#1d2027;--text:#e8eaef;--muted:#9aa1ad;--line:#2d313b;--accent:#6b9bff}}
+/* React Bits 風格：近黑底、毛玻璃卡片、紫色強調、流動背景與文字光澤 */
+:root{color-scheme:dark;--bg:#0a0910;--card:rgba(255,255,255,.045);--field:rgba(255,255,255,.06);--text:#f2f0fa;--muted:#9b97ad;--line:rgba(255,255,255,.1);--accent:#5227ff;--accent2:#b19eef;--chip-bg:rgba(255,255,255,.92);--chip-fg:#15121f;--glow:rgba(82,39,255,.45);--blob1:rgba(82,39,255,.35);--blob2:rgba(255,95,200,.22);--dot:rgba(255,255,255,.07)}
+@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f6f4fc;--card:rgba(255,255,255,.75);--field:rgba(82,39,255,.05);--text:#17132a;--muted:#6a6580;--line:rgba(60,30,160,.14);--accent:#5227ff;--accent2:#5227ff;--chip-bg:rgba(23,19,42,.82);--chip-fg:#fff;--glow:rgba(82,39,255,.28);--blob1:rgba(82,39,255,.18);--blob2:rgba(255,95,200,.14);--dot:rgba(60,30,160,.08)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Microsoft JhengHei",system-ui,sans-serif}
-header{padding:20px 24px 4px}
-h1{margin:0;font-size:22px}
-.sub{color:var(--muted);font-size:13px}
-main{display:grid;grid-template-columns:minmax(380px,1.1fr) minmax(320px,1fr);gap:20px;padding:16px 24px 32px}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 "Microsoft JhengHei",system-ui,sans-serif;min-height:100vh;position:relative;overflow-x:hidden}
+/* 流動背景（Aurora）＋點陣 */
+body::before{content:"";position:fixed;inset:-20%;z-index:-2;pointer-events:none;
+  background:radial-gradient(40% 35% at 20% 25%,var(--blob1),transparent 70%),radial-gradient(35% 35% at 80% 15%,var(--blob2),transparent 70%),radial-gradient(40% 40% at 60% 85%,var(--blob1),transparent 70%);
+  filter:blur(30px);animation:drift 22s ease-in-out infinite alternate}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:radial-gradient(var(--dot) 1px,transparent 1px);background-size:22px 22px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 80%);mask-image:radial-gradient(ellipse at 50% 30%,#000 30%,transparent 80%)}
+@keyframes drift{0%{transform:translate3d(-3%,-2%,0) scale(1)}100%{transform:translate3d(4%,3%,0) scale(1.12)}}
+header{padding:26px 24px 6px}
+.pill{display:inline-block;white-space:nowrap;font-size:11px;letter-spacing:.08em;font-weight:700;padding:2px 10px;border-radius:999px;color:var(--accent2);background:rgba(82,39,255,.16);border:1px solid rgba(177,158,239,.35);margin-bottom:6px}
+h1{margin:0;font-size:clamp(22px,6vw,28px);letter-spacing:.01em;line-height:1.25;background:linear-gradient(110deg,var(--text) 35%,var(--accent2) 50%,var(--text) 65%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 5s linear infinite}
+@keyframes shine{0%{background-position:150% 0}100%{background-position:-50% 0}}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+main{display:grid;grid-template-columns:minmax(380px,1.1fr) minmax(320px,1fr);gap:20px;padding:16px 24px 40px}
 @media(max-width:900px){main{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);animation:rise .6s cubic-bezier(.2,.7,.2,1) both;overflow:hidden}
+main .card:nth-child(2){animation-delay:.08s}
+/* 聚光燈：游標移動時卡片邊緣與底色跟著發亮 */
+.card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),var(--glow),transparent 60%);-webkit-mask:linear-gradient(#000,#000);}
+.card:hover::before{opacity:.35}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .card h2{margin:0 0 12px;font-size:16px}
-.matrix{display:grid;grid-template-columns:28px repeat(5,1fr);grid-template-rows:repeat(5,minmax(70px,1fr)) 28px;gap:4px}
+.remind{border-color:rgba(232,162,29,.5)}
+.grp{border:1px solid var(--line);background:var(--field);border-radius:12px;padding:10px 12px;margin-top:10px}
+.grp .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.grp a.btn{display:inline-block;text-decoration:none;color:#fff;background:linear-gradient(135deg,#6a4bff,var(--accent));padding:5px 12px;border-radius:10px;font-size:13px;font-weight:600}
+.due-tag{display:inline-block;font-size:11px;font-weight:700;color:#fff;border-radius:999px;padding:0 8px;margin-right:6px}
+.inner{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--field)}
+#detail:empty::before{content:"點選圖表上的風險標籤，或清單中的任一列，就會在這裡顯示詳細資料，並可更新進度。";display:block;color:var(--muted);font-size:14px;padding:28px 8px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+.matrix{display:grid;grid-template-columns:28px repeat(5,1fr);grid-template-rows:repeat(5,minmax(70px,1fr)) 28px;gap:5px;position:relative}
 .axis{display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)}
-.cell{border-radius:8px;padding:4px;display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;cursor:pointer;border:2px solid transparent;min-height:70px}
-.cell.hit{border-color:var(--text)}
-.cell.dim{opacity:.35}
+.cell{border-radius:10px;padding:4px;display:flex;flex-wrap:wrap;gap:3px;align-content:flex-start;cursor:pointer;border:1px solid var(--line);min-height:70px;transition:transform .15s,opacity .25s,background .25s,border-color .25s,box-shadow .25s}
+.cell:hover{transform:translateY(-2px);border-color:var(--accent2)}
+.cell.hit{border-color:var(--text);box-shadow:0 0 18px var(--glow)}
+.cell.dim{opacity:.3}
 .chip.off{opacity:.3}
-.stat{cursor:pointer;border:2px solid transparent}
-.stat.on{border-color:var(--text);box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--text)}
-.cell.over{outline:2px dashed var(--text)}
-.chip{background:rgba(0,0,0,.72);color:#fff;font-size:11px;padding:1px 6px;border-radius:10px;cursor:grab;height:20px}
+.stat{cursor:pointer;border:1px solid rgba(255,255,255,.25);transition:transform .15s,box-shadow .2s}
+.stat:hover{transform:translateY(-2px);box-shadow:0 8px 24px -8px rgba(0,0,0,.6)}
+.stat.on{border-color:#fff;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent2),0 0 22px var(--glow)}
+.cell.over{outline:2px dashed var(--accent2)}
+.chip{background:var(--chip-bg);color:var(--chip-fg);font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;cursor:grab;height:20px;box-shadow:0 1px 6px rgba(0,0,0,.35);transition:transform .15s}
+.chip:hover{transform:scale(1.12)}
 .chip.closed{opacity:.35;text-decoration:line-through}
-.lab{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+.lab{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
 .ylab{writing-mode:vertical-rl;transform:rotate(180deg)}
-.stats{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-.stat{flex:1;min-width:80px;border-radius:8px;padding:8px 12px;color:#fff}
-.stat b{display:block;font-size:22px}
+.stats{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.stat{flex:1;min-width:80px;border-radius:12px;padding:10px 14px;color:#fff;background-image:linear-gradient(160deg,rgba(255,255,255,.22),transparent 55%)}
+.stat b{display:block;font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
-th{color:var(--muted);font-weight:600}
-tr.click{cursor:pointer}tr.click:hover{background:var(--bg)}
-.badge{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:12px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.04em}
+tr.click{cursor:pointer;transition:background .15s}tr.click:hover{background:rgba(82,39,255,.14)}
+.badge{display:inline-block;padding:1px 9px;border-radius:999px;color:#fff;font-size:12px}
 form{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
 form .full{grid-column:1/-1}
-input,select,textarea,button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
-button{background:var(--accent);color:#fff;border:0;cursor:pointer}
-button.ghost{background:transparent;color:var(--text);border:1px solid var(--line);width:auto}
+input,select,textarea,button{font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:7px 10px;width:100%;outline:none;transition:border-color .15s,box-shadow .15s,transform .1s,filter .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(82,39,255,.28)}
+select option{color:#17132a;background:#fff}
+button{background:linear-gradient(135deg,#6a4bff,var(--accent));color:#fff;border:0;cursor:pointer;font-weight:600;box-shadow:0 6px 20px -6px var(--glow)}
+button:hover{filter:brightness(1.12);transform:translateY(-1px)}
+button:active{transform:none}
+button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+button.ghost{background:var(--field);color:var(--text);border:1px solid var(--line);width:auto;box-shadow:none;font-weight:500}
+button.ghost:hover{border-color:var(--accent2)}
+dialog{box-shadow:0 20px 60px rgba(0,0,0,.55)}
+dialog::backdrop{background:rgba(5,4,10,.65);backdrop-filter:blur(5px)}
 .row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
-.filter{font-size:13px;color:var(--muted)}
+.filter{font-size:13px;color:var(--accent2)}
+@media (prefers-reduced-motion:reduce){body::before,h1,.card{animation:none}.cell,.chip,.stat,button{transition:none}}
 </style>
 </head>
 <body>
 <header>
-  <div class="row" style="margin:0">
-    <div><h1>專案風險熱力圖</h1>
+  <div class="row" style="margin:0;flex-wrap:wrap;gap:12px">
+    <div style="flex:1 1 280px;min-width:0"><span class="pill">RISK TRACKER</span><h1>專案風險熱力圖</h1>
     <div class="sub">拖曳風險標籤到其他格子即可調整等級；點格子可篩選清單。資料儲存在本機瀏覽器。</div></div>
     <div style="display:flex;gap:8px;align-items:center">
       <button id="role" class="ghost" style="white-space:nowrap" title="一般使用者不需登入；管理者請登入">🔑 管理者登入</button>
@@ -57,7 +91,7 @@ button.ghost{background:transparent;color:var(--text);border:1px solid var(--lin
     </div>
   </div>
 </header>
-<dialog id="login" style="border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);padding:20px;width:min(340px,90vw)">
+<dialog id="login" style="border:1px solid var(--line);border-radius:18px;background:var(--bg);color:var(--text);padding:22px;width:min(340px,90vw)">
   <form id="loginForm" style="display:grid;grid-template-columns:1fr;gap:10px">
     <b style="font-size:16px">管理者登入</b>
     <input id="lUser" placeholder="帳號" autocomplete="username" required>
@@ -75,23 +109,28 @@ button.ghost{background:transparent;color:var(--text);border:1px solid var(--lin
       <input name="owner" placeholder="負責人">
       <input name="plan" placeholder="因應對策">
       <input name="progress" placeholder="進度更新（選填，會記錄為今天的第一則）">
+      <input name="email" type="email" placeholder="負責人 Email（到期通知用，選填）">
       <label style="font-size:12px;color:var(--muted)">預計完成日<input name="due" type="date"></label>
       <button class="full">新增風險</button>
     </form>
   </section>
 </div>
+<div id="remind" style="padding:8px 24px 0"></div>
 <main>
   <section class="card">
     <div class="stats" id="stats"></div>
     <div class="matrix" id="matrix"></div>
     <div class="lab">橫軸：影響程度 → ／ 縱軸：發生機率 ↑</div>
   </section>
+  <section class="card" id="detailCard">
+    <h2>風險詳細資料</h2>
+    <div id="detail"></div>
+  </section>
   <section class="card" style="grid-column:1/-1">
     <div class="row"><h2 style="margin:0">風險清單</h2>
       <span class="filter" id="filterInfo"></span>
       <button class="ghost" id="clearFilter" style="display:none">清除篩選</button></div>
     <div style="overflow-x:auto"><table><thead><tr><th>編號</th><th>描述</th><th>進度更新</th><th>最新更新日</th><th>預計完成日</th><th>分數</th><th>負責人</th><th>狀態</th></tr></thead><tbody id="list"></tbody></table></div>
-    <div id="detail" style="margin-top:12px"></div>
   </section>
 </main>
 <script>
@@ -116,19 +155,21 @@ const todayStr=()=>dayStr(0);
 // 示範用的進度更新（更新日、預計完成日以今天為基準）
 const extra={
  R01:['已向備援供應商 B 取得報價，等待樣品',-2,12],
- R02:['變更凍結已獲客戶同意，下週起走變更單',-5,7],
+ R02:['變更凍結已獲客戶同意，下週起走變更單',-5,3],
  R03:['關鍵模組文件完成 60%',-9,30],
  R04:['獨立測試機已下單，預計下週到貨',-3,10],
  R05:['預審資料已送出，等待測試實驗室回覆',-1,21],
- R06:['可延後項目清單已完成，待主管確認',-12,14],
- R07:['月會已排定，與 PMO 協調人力',-4,6],
+ R06:['可延後項目清單已完成，待主管確認',-12,-1],
+ R07:['月會已排定，與 PMO 協調人力',-4,2],
  R08:['文件庫已上線，舊文件已搬遷',-20,-15],
  R09:['已與財務討論遠期匯率方案',-15,40],
- R10:['驗收條件書初稿已寄給客戶',-6,9],
+ R10:['驗收條件書初稿已寄給客戶',-6,1],
  R11:['掃描報告已確認，修補排入下個 Sprint',-8,25],
  R12:['待辦追蹤板已導入週會使用',-25,-20]
 };
-demo.forEach(r=>{const e=extra[r.id];
+// 示範用 Email（example.com 為保留網域，不會寄到真實信箱）
+const EMAILS={'小王':'xiaowang@example.com','Emma':'emma@example.com','小李':'xiaoli@example.com','小陳':'xiaochen@example.com','小周':'xiaozhou@example.com'};
+demo.forEach(r=>{const e=extra[r.id];r.email=EMAILS[r.owner]||'';
   r.logs=[{d:dayStr(e[1]-6),t:'已列入追蹤，開始評估'},{d:dayStr(e[1]),t:e[0]}];r.due=dayStr(e[2])});
 let risks;try{risks=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!Array.isArray(risks))risks=demo;
@@ -192,10 +233,89 @@ document.getElementById('loginForm').onsubmit=async e=>{
   try{sessionStorage.setItem('risk-admin',JSON.stringify(admin))}catch(_){}
   form.reset();loginDlg.close();setRole();
 };
+// 到期提醒：預計完成日前 NOTIFY_DAYS 天起（含已逾期）、尚未關閉的風險，依負責人彙整。
+// 純前端無法在沒人開啟頁面時自動寄信，所以提供：頁面提醒區、一鍵產生通知信（mailto）、複製訊息、瀏覽器通知（開著頁面時）。
+const NOTIFY_DAYS=3;
+const daysLeft=r=>Math.round((new Date(r.due+'T00:00:00')-new Date(todayStr()+'T00:00:00'))/DAY);
+let notified={};try{notified=JSON.parse(localStorage.getItem('risk-notified'))||{}}catch(e){}
+const nKey=r=>r.id+'|'+r.due;
+const dueItems=()=>risks.filter(r=>r.status!=='已關閉'&&r.due&&daysLeft(r)<=NOTIFY_DAYS).sort((a,b)=>a.due.localeCompare(b.due));
+const dueLabel=r=>{const d=daysLeft(r);return d<0?`已逾期 ${-d} 天`:d===0?'今天到期':`${d} 天後到期`};
+const dueColor=r=>daysLeft(r)<0?'#d64545':daysLeft(r)===0?'#e8731d':'#e8a21d';
+function mailText(owner,list){
+  return `${owner} 您好，\n\n以下風險項目的預計完成日即將到期（或已逾期），請協助更新進度紀錄：\n\n`+
+    list.map(r=>`- ${r.id} ${r.desc}（預計完成：${r.due}，${dueLabel(r)}）`).join('\n')+
+    `\n\n謝謝！`;
+}
+function renderRemind(){
+  const el=document.getElementById('remind');if(!el)return;
+  const items=dueItems();
+  if(!items.length){el.innerHTML='';return}
+  const by={};items.forEach(r=>(by[r.owner]=by[r.owner]||[]).push(r));
+  el.innerHTML=`<section class="card remind"><div class="row"><h2 style="margin:0">⏰ 到期提醒（預計完成日前 ${NOTIFY_DAYS} 天起）</h2>
+    <button class="ghost" id="notiBtn" title="開著此頁面時，會以瀏覽器通知提醒">🔔 開啟瀏覽器提醒</button></div>`+
+    Object.keys(by).map(o=>{
+      const list=by[o],mail=(list.find(r=>r.email)||{}).email||'';
+      const allDone=list.every(r=>notified[nKey(r)]);
+      const href=`mailto:${encodeURIComponent(mail).replace(/%40/g,'@')}?subject=${encodeURIComponent('【風險到期提醒】'+list.length+' 項風險即將到期')}&body=${encodeURIComponent(mailText(o,list)).replace(/%0A/g,'%0D%0A')}`;
+      return `<div class="grp"><b>${esc(o)}</b> <span style="color:var(--muted);font-size:12px">${esc(mail||'（尚未填 Email）')}</span>`+
+        list.map(r=>`<div style="font-size:13px;margin-top:4px"><span class="due-tag" style="background:${dueColor(r)}">${dueLabel(r)}</span>${r.id} ${esc(r.desc)}　<span style="color:var(--muted)">預計 ${r.due}</span>${notified[nKey(r)]?` <span style="color:var(--muted)">・已通知 ${notified[nKey(r)]}</span>`:''}</div>`).join('')+
+        `<div class="acts"><a class="btn" href="${href}" data-o="${esc(o)}">✉ 寄通知給 ${esc(o)}${allDone?'（再次）':''}</a>
+         <button class="ghost" data-copy="${esc(o)}">複製訊息</button></div></div>`;
+    }).join('')+`</section>`;
+  el.querySelectorAll('a.btn').forEach(a=>a.onclick=()=>{
+    (by[a.dataset.o]||[]).forEach(r=>notified[nKey(r)]=todayStr());
+    try{localStorage.setItem('risk-notified',JSON.stringify(notified))}catch(e){}
+    setTimeout(renderRemind,400);
+  });
+  el.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{
+    const o=b.dataset.copy,msg=mailText(o,by[o]);
+    (navigator.clipboard?navigator.clipboard.writeText(msg):Promise.reject()).then(()=>{b.textContent='已複製 ✓'}).catch(()=>prompt('請手動複製：',msg));
+  });
+  document.getElementById('notiBtn').onclick=()=>{
+    if(!('Notification' in window)){alert('此瀏覽器不支援通知');return}
+    Notification.requestPermission().then(p=>{
+      if(p==='granted')browserNotify(true);
+      else alert('通知權限未開啟。若是直接開啟檔案（file://），瀏覽器可能不允許通知；改用網址（https）開啟即可。');
+    });
+  };
+}
+function browserNotify(force){
+  try{
+    if(!('Notification' in window)||Notification.permission!=='granted')return;
+    const day=todayStr();
+    if(!force&&localStorage.getItem('risk-notify-day')===day)return;
+    const items=dueItems();if(!items.length)return;
+    new Notification('專案風險到期提醒',{body:`${items.length} 項風險即將到期或已逾期：`+items.slice(0,4).map(r=>`${r.id}（${r.owner}，${dueLabel(r)}）`).join('、')});
+    localStorage.setItem('risk-notify-day',day);
+  }catch(e){}
+}
+// 視覺效果：數字跳動（首次載入）、卡片聚光燈（跟隨游標）
+let firstPaint=true;
+const reduceMotion=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function countUp(){
+  if(reduceMotion)return;
+  document.querySelectorAll('.stat b').forEach(b=>{
+    const to=+b.textContent||0;if(!to)return;
+    const t0=performance.now(),dur=900;
+    const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);b.textContent=Math.round(to*e);if(k<1)requestAnimationFrame(step)};
+    b.textContent=0;requestAnimationFrame(step);
+  });
+}
+document.addEventListener('pointermove',e=>{
+  const c=e.target.closest&&e.target.closest('.card');if(!c)return;
+  const r=c.getBoundingClientRect();c.style.setProperty('--mx',(e.clientX-r.left)+'px');c.style.setProperty('--my',(e.clientY-r.top)+'px');
+});
 // 篩選條件：{t:'level',v:'高'} | {t:'closed'} | {t:'cell',p,i} | {t:'risk',id} | null
 let flt=null;
 const sameF=(a,b)=>a&&b&&JSON.stringify(a)===JSON.stringify(b);
-const setF=f=>{flt=sameF(flt,f)?null:f;render()};
+const setF=f=>{
+  flt=sameF(flt,f)?null:f;render();
+  // 篩選結果只有一筆時，自動顯示它的詳細資料；原本顯示的風險若被篩掉則清空
+  const m=risks.filter(hit);
+  if(flt&&m.length===1)showDetail(m[0].id);
+  else if(curId){const c=risks.find(r=>r.id===curId);if(!c||!hit(c)){curId=null;document.getElementById('detail').innerHTML=''}}
+};
 const hit=r=>{
   if(!flt)return true;
   if(flt.t==='level')return r.status!=='已關閉'&&level(score(r))[0]===flt.v;
@@ -218,6 +338,7 @@ function render(){
     ['高','中','低'].map(k=>`<div class="stat${sameF(flt,{t:'level',v:k})?' on':''}" data-f='${JSON.stringify({t:'level',v:k})}' style="background:${level(k==='高'?15:k==='中'?8:1)[1]}"><b>${cnt(k)}</b>${k}風險（未關閉）</div>`).join('')+
     `<div class="stat${flt&&flt.t==='closed'?' on':''}" data-f='{"t":"closed"}' style="background:#6b7280"><b>${risks.length-open.length}</b>已關閉</div>`;
   document.querySelectorAll('.stat').forEach(s=>s.onclick=()=>setF(JSON.parse(s.dataset.f)));
+  if(firstPaint){firstPaint=false;countUp()}
   // matrix
   const m=document.getElementById('matrix');m.innerHTML='';
   for(let p=5;p>=1;p--){
@@ -248,14 +369,15 @@ function render(){
   document.getElementById('list').innerHTML=rows.map(r=>{const [n,c]=level(score(r));
     const od=r.due&&r.status!=='已關閉'&&r.due<todayStr();
     return `<tr class="click" data-id="${r.id}"><td>${r.id}</td><td>${esc(r.desc)}</td><td style="min-width:220px">${r.logs.length?sortedLogs(r).map(l=>`<div>${l.d} ${esc(l.t)}</div>`).join(''):'—'}</td><td style="white-space:nowrap">${lastUpdate(r)||'—'}</td><td style="white-space:nowrap${od?';color:#d64545;font-weight:600':''}">${r.due||'—'}${od?'（逾期）':''}</td><td><span class="badge" style="background:${c}">${score(r)}・${n}</span></td><td>${esc(r.owner)}</td><td>${r.status}</td></tr>`}).join('')||'<tr><td colspan="8" style="color:var(--muted)">此格沒有風險</td></tr>';
-  document.querySelectorAll('tr.click').forEach(t=>t.onclick=()=>showDetail(t.dataset.id));
+  document.querySelectorAll('tr.click').forEach(t=>t.onclick=()=>{showDetail(t.dataset.id);document.getElementById('detailCard').scrollIntoView({behavior:'smooth',block:'nearest'})});
   document.getElementById('filterInfo').textContent=fText();
   document.getElementById('clearFilter').style.display=flt?'':'none';
+  renderRemind();
 }
 function showDetail(id){
   const r=risks.find(x=>x.id===id);if(!r)return;
   curId=id;
-  document.getElementById('detail').innerHTML=`<div class="card" style="background:var(--bg)"><b>${r.id}　${esc(r.desc)}</b><br>
+  document.getElementById('detail').innerHTML=`<div class="inner"><b>${r.id}　${esc(r.desc)}</b><br>
   機率 ${r.p}／影響 ${r.i}／負責人 ${esc(r.owner)}<br>因應對策：${esc(r.plan||'—')}<br>
   <div style="margin-top:8px;font-size:13px"><b>進度紀錄</b>
     ${r.logs.length?sortedLogs(r).map((l,k)=>`<div>・${l.d} ${esc(l.t)} <a href="#" data-dl="${r.logs.indexOf(l)}" style="color:var(--muted);text-decoration:none" title="刪除這則">✕</a></div>`).join(''):'<div style="color:var(--muted)">尚無紀錄</div>'}
@@ -267,6 +389,8 @@ function showDetail(id){
   </div>
   <label style="display:block;font-size:12px;color:var(--muted);margin-top:8px">預計完成日
     <input id="dDue" type="date" value="${r.due||''}" style="width:auto;display:inline-block"></label>
+  <label style="display:block;font-size:12px;color:var(--muted);margin-top:8px">負責人 Email（到期通知用）
+    <input id="dMail" type="email" value="${esc(r.email||'')}" placeholder="name@company.com"></label>
   <div class="row" style="margin-top:8px;justify-content:flex-start">
   <select id="st" style="width:auto">${['監控中','處理中','已關閉'].map(s=>`<option ${s===r.status?'selected':''}>${s}</option>`).join('')}</select>
   ${isAdmin()?'<button class="ghost" id="del" style="color:#d64545">刪除此風險</button>':'<span style="font-size:12px;color:var(--muted)">只有管理者（需登入）可以刪除風險</span>'}</div></div>`;
@@ -275,6 +399,9 @@ function showDetail(id){
     if(!t)return;r.logs.push({d,t});save();render();showDetail(id)};
   document.getElementById('dAdd').onclick=addLog;
   document.getElementById('dProg').onkeydown=e=>{if(e.key==='Enter')addLog()};
+  document.getElementById('dMail').onchange=e=>{
+    // 同一位負責人的所有風險一起更新 Email
+    const v=e.target.value.trim();risks.filter(x=>x.owner===r.owner).forEach(x=>x.email=v);save();render()};
   document.getElementById('dDue').onchange=e=>{r.due=e.target.value;save();render()};
   document.querySelectorAll('[data-dl]').forEach(a=>a.onclick=e=>{e.preventDefault();r.logs.splice(+a.dataset.dl,1);save();render();showDetail(id)});
   document.getElementById('st').onchange=e=>{r.status=e.target.value;save();render();showDetail(id)};
@@ -293,11 +420,12 @@ document.getElementById('toggleForm').onclick=()=>toggleForm();
 document.getElementById('form').onsubmit=e=>{
   e.preventDefault();const f=new FormData(e.target);
   const n=Math.max(0,...risks.map(r=>+r.id.slice(1)))+1;
-  risks.push({id:'R'+String(n).padStart(2,'0'),desc:f.get('desc'),p:+f.get('p'),i:+f.get('i'),owner:f.get('owner')||'未指派',plan:f.get('plan'),status:'監控中',logs:f.get('progress').trim()?[{d:todayStr(),t:f.get('progress').trim()}]:[],due:f.get('due')||''});
+  risks.push({id:'R'+String(n).padStart(2,'0'),desc:f.get('desc'),p:+f.get('p'),i:+f.get('i'),owner:f.get('owner')||'未指派',plan:f.get('plan'),status:'監控中',logs:f.get('progress').trim()?[{d:todayStr(),t:f.get('progress').trim()}]:[],due:f.get('due')||'',email:(f.get('email')||'').trim()||(risks.find(x=>x.owner===(f.get('owner')||'未指派')&&x.email)||{}).email||''});
   save();e.target.reset();toggleForm(false);render();
 };
 setRole();
 render();
+browserNotify(false);
 </script>
 </body>
 </html>
